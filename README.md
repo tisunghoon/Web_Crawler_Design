@@ -108,7 +108,7 @@ tests/                컴포넌트별 테스트 + 통합 테스트
 | `Crawler` | 1, 10, 11.5~11.6 | 시드 검증·중복 제거, BFS, 요약 통계 |
 | `URLFrontier` | 2 | 우선순위 힙, 호스트별 버킷, politeness 대기 |
 | `DNSResolver` | 3 | 기본 TTL 600초, 만료 시 제거 후 재조회, 실패는 `None` |
-| `RobotsTxtCache` | 4 | `User-agent: *` Disallow prefix 매칭, Crawl-delay 상한 300초 |
+| `RobotsTxtCache` | 4 | `User-agent: *` 그룹의 Allow/Disallow(`*`, `$` 와일드카드, 가장 긴 패턴 우선), Crawl-delay 상한 300초 |
 | `Downloader` | 5, 9.2~9.3 | 30초 타임아웃, 5xx·타임아웃은 5초 간격 최대 2회 재시도 |
 | `ContentParser` | 6 | script/style/nav/footer 제거, 상대 경로 절대화 |
 | `DuplicateDetector` | 7 | 태그·앞뒤 공백 제거 후 MD5, `new`/`duplicate`/`empty` |
@@ -128,7 +128,8 @@ tests/                컴포넌트별 테스트 + 통합 테스트
 기다립니다. robots.txt의 `Crawl-delay`는 `set_host_delay()`로 호스트별 기본 delay를 덮어씁니다.
 
 **robots.txt 캐싱.** 도메인마다 한 번만 요청합니다. 404, 연결 실패 등 200이 아닌 응답은 "전부 허용"으로 캐시해서 없는
-robots.txt를 URL마다 다시 요청하지 않습니다.
+robots.txt를 URL마다 다시 요청하지 않습니다. 규칙 매칭은 표준 라이브러리 `RobotFileParser`가 `*`, `$` 와일드카드를
+지원하지 않아(예: 다나와의 `Disallow: /*?iframe=*`) RFC 9309 방식으로 직접 구현했습니다.
 
 **DNS 캐싱.** 같은 호스트를 반복 조회하는 비용을 TTL 동안 줄입니다. 조회 함수와 시계를 주입할 수 있어 테스트에서
 실제 DNS 없이 만료 경계를 검증합니다.
@@ -181,5 +182,5 @@ robots.txt를 URL마다 다시 요청하지 않습니다.
 - 단일 스레드입니다. politeness 대기 중에는 다른 호스트의 URL도 함께 멈춥니다.
 - URL 정규화를 하지 않습니다. `#fragment`나 끝의 `/` 차이는 서로 다른 URL로 취급합니다.
 - 상태를 메모리에만 두므로 중단 후 재개할 수 없습니다.
-- `Crawl-delay`는 표준 라이브러리 `RobotFileParser`가 인식하는 정수 값만 반영합니다.
+- robots.txt는 `User-agent: *` 그룹만 봅니다. 특정 봇 이름 전용 그룹은 무시합니다.
 - 실제 서비스를 크롤링할 때는 대상 사이트의 이용 약관과 robots.txt를 확인하고 `--delay`를 넉넉히 두세요.

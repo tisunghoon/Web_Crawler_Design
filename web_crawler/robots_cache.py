@@ -1,6 +1,7 @@
 import logging
+import re
+from dataclasses import dataclass, field
 from urllib.parse import urlparse
-from urllib.robotparser import RobotFileParser
 
 import requests
 
@@ -8,39 +9,101 @@ logger = logging.getLogger(__name__)
 
 MAX_CRAWL_DELAY = 300.0
 REQUEST_TIMEOUT = 30
-_USER_AGENT = "*"
+
+
+@dataclass(frozen=True)
+class _Rule:
+    length: int  # 원래 패턴 길이. "가장 긴 패턴 우선" 비교에 쓴다
+    regex: re.Pattern[str]
+
+
+@dataclass
+class RobotsRules:
+    """`User-agent: *` 그룹의 규칙. RFC 9309 방식: `*`, `$` 지원, 가장 긴 패턴이 우선, 길이가 같으면 Allow 우선."""
+
+    allow: list[_Rule] = field(default_factory=list)
+    disallow: list[_Rule] = field(default_factory=list)
+    crawl_delay: float | None = None
+
+    @classmethod
+    def parse(cls, text: str) -> "RobotsRules":
+        rules = cls()
+        applies = False  # 현재 그룹이 `*`를 포함하는지
+        in_agent_lines = False
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            field_name, sep, value = line.partition(":")
+            if not sep:
+                continue
+            field_name, value = field_name.strip().lower(), value.strip()
+            if field_name == "user-agent":
+                if not in_agent_lines:  # 새 그룹 시작
+                    applies = False
+                applies = applies or value == "*"
+                in_agent_lines = True
+                continue
+            in_agent_lines = False
+            if not applies:
+                continue
+            if field_name == "disallow" and value:
+                rules.disallow.append(_compile(value))
+            elif field_name == "allow" and value:
+                rules.allow.append(_compile(value))
+            elif field_name == "crawl-delay":
+                try:
+                    rules.crawl_delay = float(value)
+                except ValueError:
+                    logger.warning("잘못된 Crawl-delay 값을 무시합니다: %r", value)
+        return rules
+
+    def is_allowed(self, path_and_query: str) -> bool:
+        blocked = _longest_match(self.disallow, path_and_query)
+        return blocked < 0 or _longest_match(self.allow, path_and_query) >= blocked
+
+
+def _compile(pattern: str) -> _Rule:
+    anchored = pattern.endswith("$")
+    body = re.escape(pattern.removesuffix("$")).replace(r"\*", ".*")
+    return _Rule(len(pattern), re.compile(body + (r"\Z" if anchored else "")))
+
+
+def _longest_match(rules: list[_Rule], target: str) -> int:
+    """일치하는 규칙 중 가장 긴 패턴의 길이. 일치하는 게 없으면 -1."""
+    return max((r.length for r in rules if r.regex.match(target)), default=-1)
 
 
 class RobotsTxtCache:
     """도메인(호스트:포트)별 robots.txt 규칙을 한 번만 가져와 캐시한다."""
 
     def __init__(self) -> None:
-        self._rules: dict[str, RobotFileParser] = {}
+        self._rules: dict[str, RobotsRules] = {}
 
     def is_allowed(self, url: str) -> bool:
         parsed = urlparse(url)
         if parsed.netloc not in self._rules:
             self.fetch_and_cache(parsed.netloc, parsed.scheme)
-        return self._rules[parsed.netloc].can_fetch(_USER_AGENT, url)
+        target = parsed.path or "/"
+        if parsed.query:
+            target += "?" + parsed.query
+        return self._rules[parsed.netloc].is_allowed(target)
 
     def get_crawl_delay(self, domain: str) -> float | None:
         rules = self._rules.get(domain)
-        delay = rules.crawl_delay(_USER_AGENT) if rules else None
-        return None if delay is None else min(float(delay), MAX_CRAWL_DELAY)
+        if rules is None or rules.crawl_delay is None:
+            return None
+        return min(rules.crawl_delay, MAX_CRAWL_DELAY)
 
     def fetch_and_cache(self, domain: str, scheme: str) -> None:
         """robots.txt를 요청해 캐시한다. 실패하거나 없으면 전체 허용 규칙을 저장한다."""
         robots_url = f"{scheme}://{domain}/robots.txt"
-        rules = RobotFileParser()
-        lines: list[str] = []
+        text = ""
         try:
             response = requests.get(robots_url, timeout=REQUEST_TIMEOUT)
         except requests.RequestException as e:
             logger.warning("robots.txt 요청 실패 url=%s: %s", robots_url, e)
         else:
             if response.status_code == 200:
-                lines = response.text.splitlines()
+                text = response.text
             else:
                 logger.warning("robots.txt 없음 url=%s status=%s", robots_url, response.status_code)
-        rules.parse(lines)
-        self._rules[domain] = rules
+        self._rules[domain] = RobotsRules.parse(text)
