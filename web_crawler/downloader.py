@@ -4,6 +4,7 @@ from collections.abc import Callable
 from urllib.parse import urljoin
 
 import requests
+from bs4 import UnicodeDammit
 
 from web_crawler.models import DownloadResult
 from web_crawler.robots_cache import RobotsTxtCache
@@ -65,13 +66,20 @@ class Downloader:
             if not content_type.lower().startswith("text/html"):
                 logger.debug("HTML이 아니라 건너뜀 url=%s content-type=%r", url, content_type)
                 return DownloadResult(url, "skipped", error_reason="Content-Type이 text/html이 아님")
-            return DownloadResult(url, "ok", html=response.text)
+            return DownloadResult(url, "ok", html=self._decode(response))
         if status in (301, 302):
             return self._handle_redirect(url, response)
 
         self._visited.add(url)
         logger.warning("HTTP %s로 건너뜀 url=%s", status, url)
         return DownloadResult(url, "skipped", error_reason=f"HTTP {status}")
+
+    @staticmethod
+    def _decode(response: requests.Response) -> str:
+        """헤더에 charset이 없으면 requests가 ISO-8859-1로 가정하므로 본문 바이트에서 직접 판별한다."""
+        if "charset" in response.headers.get("Content-Type", "").lower():
+            return response.text
+        return UnicodeDammit(response.content, is_html=True).unicode_markup or ""
 
     def _handle_redirect(self, url: str, response: requests.Response) -> DownloadResult:
         self._visited.add(url)

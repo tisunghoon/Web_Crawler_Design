@@ -139,3 +139,27 @@ def test_robots_disallow_skips_without_requesting_page(visited, sleeps):
     result = downloader.download(URL, 0)
     assert result.status == "skipped"
     assert page_calls() == []
+
+
+KOREAN = "한글 본문"
+
+
+@responses.activate
+def test_utf8_body_without_charset_is_decoded_as_utf8(downloader):
+    body = f"<html><body>{KOREAN}</body></html>".encode("utf-8")
+    responses.add(responses.GET, URL, body=body, content_type="text/html")
+    assert KOREAN in downloader.download(URL, 0).html
+
+
+@responses.activate
+def test_meta_charset_is_used_when_header_has_none(downloader):
+    body = f'<html><head><meta charset="euc-kr"></head><body>{KOREAN}</body></html>'.encode("euc-kr")
+    responses.add(responses.GET, URL, body=body, content_type="text/html")
+    assert KOREAN in downloader.download(URL, 0).html
+
+
+@responses.activate
+def test_header_charset_takes_precedence(downloader):
+    body = f"<html><body>{KOREAN}</body></html>".encode("euc-kr")
+    responses.add(responses.GET, URL, body=body, content_type="text/html; charset=euc-kr")
+    assert KOREAN in downloader.download(URL, 0).html
