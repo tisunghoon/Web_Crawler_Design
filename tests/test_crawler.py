@@ -411,3 +411,73 @@ def test_out_of_scope_count_is_printed(capsys):
     page_on("a.com", "/", "http://b.com/x")
     make_crawler(["http://a.com/"])[0].run()
     assert "범위 밖 링크 수: 1" in capsys.readouterr().out
+
+
+CARD_PAGE = (
+    "<html><title>list</title><body>"
+    '<div class="dnw-product-list-item">'
+    '<a href="http://a.com/info/?pcode=7" aria-label="테스트 노트북 상세보기"></a>'
+    '<a href="http://a.com/info/?pcode=7" aria-label="SSD 512GB 1,000,000원"></a>'
+    '<a href="http://a.com/info/?pcode=8" aria-label="SSD 1TB 1,100,000원"></a>'
+    "</div></body></html>"
+)
+
+
+def serve_card_page():
+    robots(status=404)
+    responses.add(responses.GET, "http://a.com/", body=CARD_PAGE, **HTML)
+
+
+@responses.activate
+def test_extractor_fills_products_and_summary_count(capsys):
+    serve_card_page()
+    crawler, _ = make_crawler(["http://a.com/"], CrawlerConfig(politeness_delay=0, extractor="danawa"))
+    summary = crawler.run()
+    stored = crawler.store.get("http://a.com/")
+    assert [(p.pcode, p.option, p.price) for p in stored.products] == [
+        ("7", "SSD 512GB", 1_000_000),
+        ("8", "SSD 1TB", 1_100_000),
+    ]
+    assert summary.product_count == 2
+    assert "추출한 상품 수: 2" in capsys.readouterr().out
+
+
+@responses.activate
+def test_without_extractor_products_are_empty_and_count_not_printed(capsys):
+    serve_card_page()
+    crawler, _ = make_crawler(["http://a.com/"])
+    summary = crawler.run()
+    assert crawler.store.get("http://a.com/").products == []
+    assert summary.product_count == 0
+    assert "추출한 상품 수" not in capsys.readouterr().out
+
+
+@responses.activate
+def test_extractor_failure_keeps_page_and_logs(caplog):
+    serve_card_page()
+    crawler, _ = make_crawler(["http://a.com/"], CrawlerConfig(politeness_delay=0, extractor="danawa"))
+
+    def broken(html, url):
+        raise RuntimeError("구조 변경")
+
+    crawler._extractor = broken
+    summary = crawler.run()
+    assert summary.total_pages == 1
+    assert crawler.store.get("http://a.com/").products == []
+    assert "상품 추출 실패" in caplog.text and "구조 변경" in caplog.text
+
+
+@responses.activate
+def test_products_are_written_to_jsonl(tmp_path):
+    serve_card_page()
+    out = tmp_path / "out.jsonl"
+    config = CrawlerConfig(politeness_delay=0, extractor="danawa", save_to_file=True, output_path=str(out))
+    make_crawler(["http://a.com/"], config)[0].run()
+    record = json.loads(out.read_text(encoding="utf-8").splitlines()[0])
+    assert record["products"][0] == {
+        "pcode": "7",
+        "name": "테스트 노트북",
+        "option": "SSD 512GB",
+        "price": 1_000_000,
+        "url": "http://a.com/info/?pcode=7",
+    }

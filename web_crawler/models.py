@@ -25,6 +25,15 @@ class DuplicateResult:
 
 
 @dataclass
+class Product:
+    pcode: str
+    name: str
+    option: str | None
+    price: int  # 원
+    url: str
+
+
+@dataclass
 class StoredPage:
     url: str
     title: str
@@ -32,6 +41,7 @@ class StoredPage:
     extracted_urls: list[str]
     crawled_at: str  # UTC ISO 8601
     md5_hash: str
+    products: list[Product] = field(default_factory=list)
 
 
 @dataclass
@@ -42,3 +52,4 @@ class CrawlSummary:
     elapsed_seconds: float
     save_failed: bool = False
     out_of_scope_count: int = 0
+    product_count: int = 0

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from web_crawler.extractors import EXTRACTORS
+
 DEFAULT_USER_AGENT = "web-crawler-toy/0.1 (learning project)"
 
 
@@ -13,6 +15,7 @@ class CrawlerConfig:
     user_agent: str = DEFAULT_USER_AGENT
     allowed_domains: tuple[str, ...] = ()
     allow_any_domain: bool = False
+    extractor: str | None = None
 
     def validate(self) -> None:
         if not 1 <= self.max_depth <= 10:
@@ -23,6 +26,8 @@ class CrawlerConfig:
             raise ValueError(f"politeness_delay는 0~60초여야 합니다: {self.politeness_delay}")
         if not self.user_agent.strip():
             raise ValueError("user_agent는 비어 있을 수 없습니다.")
+        if self.extractor is not None and self.extractor not in EXTRACTORS:
+            raise ValueError(f"알 수 없는 extractor: {self.extractor!r} (사용 가능: {', '.join(sorted(EXTRACTORS))})")
         for domain in self.allowed_domains:
             if not domain.strip() or any(ch in domain for ch in "/:"):
                 raise ValueError(f"allowed_domains에는 도메인 이름만 쓸 수 있습니다: {domain!r}")
