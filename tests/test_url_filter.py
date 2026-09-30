@@ -114,6 +114,9 @@ def test_host_confusing_urls_are_rejected(url):
         "http://A.COM/x",
         "http://user:pw@a.com/x",
         "http://a.com@evil.com/",  # 두 파서 모두 evil.com. 호스트 판정이 같으면 필터는 통과시키고 범위가 걸러낸다
+        "http://a.com#@evil.com/",  # 호스트는 a.com. 어긋나 보이지만 일치하므로 통과해야 한다
+        "http://a.com%40evil.com/",
+        "HTTP://a.com/x",
         "http://[::1]:8080/x",
         "http://[2001:db8::1]/x",
         "http://bücher.de/x",
@@ -130,15 +133,17 @@ _paths = st.sampled_from(["", "/", "/x", "/a@b"])
 # 무작위 문자열만으로는 "host\\@host" 같은 혼동 조합이 거의 나오지 않아 위험한 조각을 직접 조립한다
 hostile = st.one_of(
     st.builds(lambda a, sep, b, path: f"http://{a}{sep}{b}{path}", _hosts, _separators, _hosts, _paths),
-    st.text(alphabet="ab.:/@\\[]-%1 #?", max_size=25).map(lambda tail: "http://" + tail),
+    st.text(alphabet="ab.:/@\\[]-%1 #?\t\n\x00\uff41\u3002", max_size=25).map(lambda tail: "http://" + tail),
 )
 
 
 # 필터를 통과한 URL은 requests가 실제로 접속할 호스트와 urlparse가 읽은 호스트가 같아야 한다 (전송 없이 준비만 한다)
 @given(hostile)
 def test_allowed_urls_have_the_same_host_for_urlparse_and_requests(url):
-    import requests
     from urllib.parse import urlparse
+
+    import requests
+    from urllib3.util import parse_url
 
     from web_crawler.url_filter import _normalized
 
@@ -149,4 +154,5 @@ def test_allowed_urls_have_the_same_host_for_urlparse_and_requests(url):
         prepared = requests.Request("GET", url).prepare().url
     except requests.RequestException:
         return  # 요청이 만들어지지 않으면 어디에도 접속하지 않는다
-    assert _normalized(urlparse(prepared).hostname) == _normalized(urlparse(url).hostname)
+    connect_host = _normalized(parse_url(prepared).host)  # requests가 실제로 접속하는 호스트
+    assert connect_host == _normalized(urlparse(url).hostname)
