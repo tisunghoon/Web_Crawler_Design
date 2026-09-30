@@ -1,4 +1,5 @@
 requests>=2.31
+urllib3>=2
 beautifulsoup4>=4.12
 pytest>=8.0
 hypothesis>=6.100

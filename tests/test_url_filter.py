@@ -91,3 +91,62 @@ def test_repeated_segment_is_rejected(others, seg):
 @pytest.mark.parametrize("url", ["http://[bad", "http://[::1", "https://[abc]x"])
 def test_unparseable_url_is_rejected_not_raised(url):
     assert make_filter()[0].is_allowed(url, 0) == (False, "URL 형식 오류")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://evil.com\\@a.com/x",  # urlparse는 a.com, urllib3(requests)는 evil.com
+        "http://127.0.0.1:8080\\@localhost:8080/x",
+        "http://evil.com\\@a.com@",
+        "http:///a.com/",
+        "http://",
+    ],
+)
+def test_host_confusing_urls_are_rejected(url):
+    assert make_filter()[0].is_allowed(url, 0) == (False, "URL 형식 오류")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://a.com/x",
+        "http://A.COM/x",
+        "http://user:pw@a.com/x",
+        "http://a.com@evil.com/",  # 두 파서 모두 evil.com. 호스트 판정이 같으면 필터는 통과시키고 범위가 걸러낸다
+        "http://[::1]:8080/x",
+        "http://[2001:db8::1]/x",
+        "http://bücher.de/x",
+        "http://a.com:8080/x",
+    ],
+)
+def test_consistent_hosts_are_not_rejected_as_malformed(url):
+    assert make_filter()[0].is_allowed(url, 0) == (True, None)
+
+
+_hosts = st.sampled_from(["a.com", "evil.com", "127.0.0.1:80", "localhost", "[::1]", "b\u00fccher.de", "x"])
+_separators = st.sampled_from(["\\@", "@", "\\", "\\\\", ":", "#", "?", "%5c@", " @", "\t@", ""])
+_paths = st.sampled_from(["", "/", "/x", "/a@b"])
+# 무작위 문자열만으로는 "host\\@host" 같은 혼동 조합이 거의 나오지 않아 위험한 조각을 직접 조립한다
+hostile = st.one_of(
+    st.builds(lambda a, sep, b, path: f"http://{a}{sep}{b}{path}", _hosts, _separators, _hosts, _paths),
+    st.text(alphabet="ab.:/@\\[]-%1 #?", max_size=25).map(lambda tail: "http://" + tail),
+)
+
+
+# 필터를 통과한 URL은 requests가 실제로 접속할 호스트와 urlparse가 읽은 호스트가 같아야 한다 (전송 없이 준비만 한다)
+@given(hostile)
+def test_allowed_urls_have_the_same_host_for_urlparse_and_requests(url):
+    import requests
+    from urllib.parse import urlparse
+
+    from web_crawler.url_filter import _normalized
+
+    allowed, _ = make_filter()[0].is_allowed(url, 0)
+    if not allowed:
+        return
+    try:
+        prepared = requests.Request("GET", url).prepare().url
+    except requests.RequestException:
+        return  # 요청이 만들어지지 않으면 어디에도 접속하지 않는다
+    assert _normalized(urlparse(prepared).hostname) == _normalized(urlparse(url).hostname)

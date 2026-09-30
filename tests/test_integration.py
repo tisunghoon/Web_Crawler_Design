@@ -164,3 +164,21 @@ def test_malformed_redirect_location_over_real_http(raw_server):
 
     assert summary.total_pages == 2
     assert summary.skipped_urls == 1
+
+
+def test_backslash_host_confusion_never_reaches_another_host(httpserver):
+    """urlparse는 localhost로, requests는 127.0.0.1로 읽는 링크가 시드 밖 호스트로 요청을 만들면 안 된다."""
+    port = httpserver.port
+    confusing = f"http://127.0.0.1:{port}\\@localhost:{port}/trap"
+    httpserver.expect_request("/robots.txt").respond_with_data("", status=404)
+    httpserver.expect_request("/").respond_with_data(html("home", "홈", confusing, "/ok"), content_type=HTML)
+    httpserver.expect_request("/ok").respond_with_data(html("ok", "정상"), content_type=HTML)
+    httpserver.expect_request("/trap").respond_with_data(html("trap", "함정"), content_type=HTML)
+
+    _, summary = crawl(httpserver)
+
+    hosts = {request.headers["Host"].split(":")[0] for request, _ in httpserver.log}
+    assert hosts == {"localhost"}
+    assert "/trap" not in requested_paths(httpserver)
+    assert summary.total_pages == 2
+    assert summary.skipped_urls == 1
