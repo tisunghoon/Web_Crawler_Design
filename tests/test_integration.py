@@ -1,4 +1,6 @@
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 
 import pytest
@@ -119,3 +121,46 @@ def test_summary_printed_and_file_saved(site, tmp_path, capsys):
     records = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
     assert len(records) == summary.total_pages
     assert {r["title"] for r in records} == {"home", "a", "deep", "same", "new"}
+
+
+@pytest.fixture
+def raw_server():
+    """werkzeug는 잘못된 Location 헤더를 만들지 못하고 500을 반환하므로, 원시 응답을 그대로 보내는 서버를 쓴다."""
+    pages = {
+        "/": html("home", "홈", "/broken", "/ok"),
+        "/ok": html("ok", "정상 페이지"),
+    }
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/broken":
+                self.send_response(302)
+                self.send_header("Location", "http://[bad")
+                body = b""
+            elif self.path in pages:
+                self.send_response(200)
+                self.send_header("Content-Type", HTML)
+                body = pages[self.path].encode("utf-8")
+            else:
+                self.send_response(404)
+                body = b""
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_port}/"
+    server.shutdown()
+    server.server_close()
+
+
+def test_malformed_redirect_location_over_real_http(raw_server):
+    crawler = Crawler.initialize([raw_server], CrawlerConfig(politeness_delay=0))
+    summary = crawler.run()
+
+    assert summary.total_pages == 2
+    assert summary.skipped_urls == 1

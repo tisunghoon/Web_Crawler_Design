@@ -283,3 +283,36 @@ def test_malformed_seed_is_skipped_and_crawl_continues():
     summary = crawler.run()
     assert summary.total_pages == 1
     assert summary.skipped_urls == 1
+
+
+@responses.activate
+def test_malformed_redirect_location_does_not_stop_crawl():
+    robots(status=404)
+    page("/", "/bad-redirect", "/ok")
+    page("/ok")
+    responses.add(responses.GET, "http://a.com/bad-redirect", status=302, headers={"Location": "http://[bad"})
+    crawler, _ = make_crawler(["http://a.com/"])
+    summary = crawler.run()
+    assert summary.total_pages == 2
+    assert summary.skipped_urls == 1
+
+
+@responses.activate
+def test_unexpected_error_on_one_url_is_logged_and_crawl_continues(caplog):
+    robots(status=404)
+    page("/", "/boom", "/ok")
+    page("/boom")
+    page("/ok")
+    crawler, _ = make_crawler(["http://a.com/"])
+    original = crawler.parser.parse
+
+    def flaky(html, base_url=None):
+        if base_url and base_url.endswith("/boom"):
+            raise RuntimeError("예상 못 한 오류")
+        return original(html, base_url)
+
+    crawler.parser.parse = flaky
+    summary = crawler.run()
+    assert summary.total_pages == 2  # /, /ok
+    assert summary.skipped_urls == 1
+    assert "예상 못 한 오류" in caplog.text and "http://a.com/boom" in caplog.text
