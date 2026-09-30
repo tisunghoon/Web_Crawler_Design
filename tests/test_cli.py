@@ -66,3 +66,13 @@ def test_allow_domain_and_any_domain_options_are_accepted(server):
 def test_invalid_allow_domain_returns_2(capsys):
     assert main(["http://example.com", "--allow-domain", "http://bad"]) == 2
     assert "오류" in capsys.readouterr().err
+
+
+def test_extract_option_accepts_registered_name(server):
+    assert main([server.url_for("/"), "--delay", "0", "--extract", "danawa"]) == 0
+
+
+def test_unknown_extractor_is_a_usage_error():
+    with pytest.raises(SystemExit) as exc:
+        main(["http://example.com", "--extract", "nope"])
+    assert exc.value.code == 2

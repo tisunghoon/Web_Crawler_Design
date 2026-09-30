@@ -67,7 +67,7 @@ def test_flush_writes_jsonl(tmp_path):
     record = json.loads(lines[0])
     assert record["url"] == "http://a.com"
     assert record["body_text"] == "한글 본문"
-    assert set(record) == {"url", "title", "body_text", "extracted_urls", "crawled_at", "md5_hash"}
+    assert set(record) == {"url", "title", "body_text", "extracted_urls", "crawled_at", "md5_hash", "products"}
 
 
 def test_flush_limits_records(tmp_path):

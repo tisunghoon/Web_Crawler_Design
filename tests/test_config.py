@@ -78,3 +78,13 @@ def test_invalid_allowed_domain_is_rejected(domain):
 
 def test_valid_allowed_domains_pass():
     CrawlerConfig(allowed_domains=("example.com", "shop.example.org")).validate()
+
+
+def test_extractor_defaults_to_none_and_accepts_registered_names():
+    assert CrawlerConfig().extractor is None
+    CrawlerConfig(extractor="danawa").validate()
+
+
+def test_unknown_extractor_is_rejected():
+    with pytest.raises(ValueError):
+        CrawlerConfig(extractor="nope").validate()

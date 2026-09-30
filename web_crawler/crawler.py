@@ -8,8 +8,9 @@ from web_crawler.content_store import ContentStore, utc_now_iso
 from web_crawler.dns_resolver import DNSResolver
 from web_crawler.downloader import Downloader
 from web_crawler.duplicate import DuplicateDetector
+from web_crawler.extractors import EXTRACTORS
 from web_crawler.frontier import URLFrontier
-from web_crawler.models import CrawlSummary, StoredPage
+from web_crawler.models import CrawlSummary, Product, StoredPage
 from web_crawler.parser import ContentParser
 from web_crawler.robots_cache import RobotsTxtCache
 from web_crawler.scope import Scope
@@ -52,6 +53,8 @@ class Crawler:
         self._skipped = 0
         self._duplicates = 0
         self._out_of_scope = 0
+        self._product_count = 0
+        self._extractor = EXTRACTORS[config.extractor] if config.extractor else None
         for url in seed_urls:
             self.frontier.push(url, SEED_PRIORITY, 0)
 
@@ -100,6 +103,7 @@ class Crawler:
             elapsed_seconds=self._clock() - started,
             save_failed=save_failed,
             out_of_scope_count=self._out_of_scope,
+            product_count=self._product_count,
         )
         logger.info("크롤링 종료 %s", summary)
         self._print_summary(summary)
@@ -138,6 +142,8 @@ class Crawler:
             self._duplicates += 1
             return
 
+        products = self._extract_products(url, html)
+        self._product_count += len(products)
         self.store.save(
             StoredPage(
                 url=url,
@@ -146,6 +152,7 @@ class Crawler:
                 extracted_urls=parsed.extracted_urls,
                 crawled_at=utc_now_iso(),
                 md5_hash=verdict.md5_hash,
+                products=products,
             )
         )
         logger.info("페이지 저장 url=%s depth=%s", url, depth)
@@ -154,6 +161,16 @@ class Crawler:
             return
         for link in parsed.extracted_urls:
             self._enqueue(link, depth + 1)
+
+    def _extract_products(self, url: str, html: str) -> list[Product]:
+        if self._extractor is None:
+            return []
+        try:
+            return self._extractor(html, url)
+        except Exception:
+            # 사이트 구조가 바뀌면 추출기가 실패할 수 있다. 페이지 수집은 계속하고 원인은 로그로 남긴다.
+            logger.exception("상품 추출 실패 url=%s", url)
+            return []
 
     def _enqueue(self, url: str, depth: int) -> None:
         if self.scope.excludes(url):
@@ -167,13 +184,14 @@ class Crawler:
         else:
             self._skipped += 1
 
-    @staticmethod
-    def _print_summary(summary: CrawlSummary) -> None:
+    def _print_summary(self, summary: CrawlSummary) -> None:
         print("=== 크롤링 요약 ===")
         print(f"수집한 페이지 수: {summary.total_pages}")
         print(f"건너뛴 URL 수: {summary.skipped_urls}")
         print(f"중복 감지 수: {summary.duplicate_count}")
         print(f"범위 밖 링크 수: {summary.out_of_scope_count}")
+        if self.config.extractor:
+            print(f"추출한 상품 수: {summary.product_count}")
         print(f"소요 시간: {summary.elapsed_seconds:.2f}초")
         if summary.save_failed:
             print("파일 저장: 실패")

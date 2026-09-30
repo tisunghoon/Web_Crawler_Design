@@ -4,6 +4,7 @@ import sys
 
 from web_crawler.config import CrawlerConfig
 from web_crawler.crawler import Crawler
+from web_crawler.extractors import EXTRACTORS
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--user-agent", default=defaults.user_agent, help="요청에 실을 User-Agent. 크롤러임을 밝히는 값을 쓰세요 (기본 %(default)r)")
     parser.add_argument("--allow-domain", action="append", default=[], metavar="DOMAIN", help="시드 호스트 외에 허용할 도메인(하위 도메인 포함). 여러 번 지정 가능")
     parser.add_argument("--allow-any-domain", action="store_true", help="범위 제한을 끄고 모든 호스트를 따라감 (주의)")
+    parser.add_argument("--extract", choices=sorted(EXTRACTORS), help="페이지에서 상품 정보를 구조화해 뽑을 사이트별 추출기")
     parser.add_argument("-v", "--verbose", action="store_true", help="INFO 로그 출력")
     return parser
 
@@ -35,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         user_agent=args.user_agent,
         allowed_domains=tuple(args.allow_domain),
         allow_any_domain=args.allow_any_domain,
+        extractor=args.extract,
         **options,
     )
     try:
