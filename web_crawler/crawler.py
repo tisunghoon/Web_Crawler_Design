@@ -145,7 +145,8 @@ class Crawler:
             )
         )
         logger.info("페이지 저장 url=%s depth=%s", url, depth)
-        if self.store.count() >= self.config.max_pages:
+        # 최대 깊이 페이지의 링크는 어차피 깊이 초과로 거부되므로 필터에 넘기지도, 집계하지도 않는다.
+        if self.store.count() >= self.config.max_pages or depth >= self.config.max_depth:
             return
         for link in parsed.extracted_urls:
             self._enqueue(link, depth + 1)
