@@ -93,8 +93,9 @@ BFS 기반 탐색, URL Frontier(우선순위 큐 + 예의 큐), robots.txt 준�
 1. WHEN Downloader가 특정 도메인의 URL을 처음 크롤링하기 전에, THE Downloader SHALL 해당 도메인의 robots.txt 파일을 `{스킴}://{도메인}/robots.txt` 경로에서 요청하고 결과를 Robots_txt_Cache에 저장한다.
 2. WHEN Downloader가 URL을 크롤링하기 전에, IF Robots_txt_Cache에 해당 도메인의 robots.txt가 이미 존재하는 경우, THEN THE Downloader SHALL 추가 HTTP 요청 없이 캐시된 규칙을 사용한다.
 3. WHEN robots.txt의 `User-agent: *` 섹션이 특정 경로에 대해 `Disallow` 규칙을 포함할 때, THE Downloader SHALL 해당 경로로 시작하는(prefix 매칭) URL의 다운로드를 건너뛴다.
-4. WHEN robots.txt 파일을 가져오는 HTTP 요청이 실패하거나 파일이 존재하지 않을 때, THE Downloader SHALL 해당 도메인에 대해 모든 URL 크롤링을 허용하는 빈 규칙을 Robots_txt_Cache에 저장하고 크롤링을 진행한다.
-5. WHEN robots.txt의 `User-agent: *` 섹션이 `Crawl-delay` 지시어를 포함할 때, THE Downloader SHALL 해당 값(초 단위, 최대 300초)을 해당 도메인의 Politeness_Delay로 사용하며, 이 값은 설정된 기본 Politeness_Delay보다 우선한다.
+4. WHEN robots.txt 파일이 존재하지 않을 때(HTTP 401·403·5xx를 제외한 200 이외의 응답, 예: 404, 410), THE Downloader SHALL 해당 도메인에 대해 모든 URL 크롤링을 허용하는 빈 규칙을 Robots_txt_Cache에 저장하고 크롤링을 진행한다.
+5. WHEN robots.txt 요청이 401, 403, 5xx 응답을 받거나 네트워크 오류로 실패할 때, THE Downloader SHALL 해당 도메인에 대해 모든 URL 크롤링을 금지하는 규칙을 Robots_txt_Cache에 저장하고 경고를 기록한다. 이는 크롤링을 허락받지 못한 상태이기 때문이다.
+6. WHEN robots.txt의 `User-agent: *` 섹션이 `Crawl-delay` 지시어를 포함할 때, THE Downloader SHALL 해당 값(초 단위, 최대 300초)을 해당 도메인의 Politeness_Delay로 사용하며, 이 값은 설정된 기본 Politeness_Delay보다 우선한다.
 
 ---
 
