@@ -25,7 +25,10 @@ class URLFilter:
         return True, None
 
     def _first_violation(self, url: str, depth: int) -> str | None:
-        parsed = urlparse(url)
+        try:
+            parsed = urlparse(url)
+        except ValueError:  # 예: "http://[bad" (잘못된 IPv6 리터럴)
+            return "URL 형식 오류"
         if parsed.scheme.lower() not in ("http", "https"):
             return "스킴 오류"
         if len(url) > MAX_URL_LENGTH:

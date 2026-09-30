@@ -39,7 +39,7 @@ class ContentStore:
             with open(path, "w", encoding="utf-8") as f:
                 for page in islice(self._pages.values(), MAX_FILE_RECORDS):
                     f.write(json.dumps(asdict(page), ensure_ascii=False) + "\n")
-        except OSError as e:
+        except (OSError, UnicodeError) as e:
             logger.error("파일 저장 실패 (%s): %s", path, e)
             return False
         return True

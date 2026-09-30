@@ -141,3 +141,9 @@ def test_pop_order_respects_priority(entries):
     expected = [u for u, _ in sorted(entries, key=lambda e: -e[1])]  # 안정 정렬 = 동점 FIFO
     popped = [frontier.pop()[0] for _ in entries]
     assert popped == expected
+
+
+def test_unparseable_url_does_not_break_push_and_pop():
+    frontier, _ = make_frontier(0)
+    assert frontier.push("http://[bad", 1.0, 0) is True
+    assert frontier.pop() == ("http://[bad", 0)

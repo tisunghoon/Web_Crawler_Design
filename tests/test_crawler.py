@@ -262,3 +262,24 @@ def test_save_failure_is_reflected_in_summary(tmp_path, capsys):
     assert summary.save_failed is True
     assert summary.total_pages == 1
     assert "파일 저장: 실패" in capsys.readouterr().out
+
+
+@responses.activate
+def test_malformed_link_is_skipped_and_crawl_continues():
+    robots(status=404)
+    page("/", "http://[bad", "/ok")
+    page("/ok")
+    crawler, _ = make_crawler(["http://a.com/"])
+    summary = crawler.run()
+    assert summary.total_pages == 2
+    assert summary.skipped_urls == 1
+
+
+@responses.activate
+def test_malformed_seed_is_skipped_and_crawl_continues():
+    robots(status=404)
+    page("/")
+    crawler, _ = make_crawler(["http://[bad", "http://a.com/"])
+    summary = crawler.run()
+    assert summary.total_pages == 1
+    assert summary.skipped_urls == 1
