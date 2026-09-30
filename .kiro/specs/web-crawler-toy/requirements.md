@@ -159,6 +159,7 @@ BFS 기반 탐색, URL Frontier(우선순위 큐 + 예의 큐), robots.txt 준�
 5. WHEN URL_Filter가 URL을 평가할 때, IF URL이 Visited_URL_Store에 이미 존재하는 경우, THEN THE URL_Filter SHALL 해당 URL을 거부한다.
 6. WHEN URL_Filter가 URL을 거부할 때, THE URL_Filter SHALL 거부된 URL과 거부 사유(길이 초과/깊이 초과/경로 반복/스킴 오류/이미 방문)를 로그에 기록한다.
 7. WHEN URL_Filter가 하나의 URL에서 여러 규칙을 동시에 위반할 때, THE URL_Filter SHALL 첫 번째로 감지된 위반 사유만 로그에 기록하고 해당 URL을 거부한다.
+8. WHEN URL_Filter가 http 또는 https URL을 평가할 때, IF URL 파서(urlparse)와 HTTP 클라이언트(urllib3)가 해석한 호스트가 서로 다르거나(예: `http://evil.com\@a.com/`) 호스트를 얻을 수 없는 경우, THEN THE URL_Filter SHALL 해당 URL을 형식 오류로 거부한다. 이는 범위 판정, robots.txt, DNS 조회가 실제 접속 호스트와 다른 호스트를 보지 않게 하기 위함이다. 대소문자, IPv6 대괄호, IDN 표기 차이는 같은 호스트로 본다.
 
 ---
 
@@ -189,7 +190,7 @@ BFS 기반 탐색, URL Frontier(우선순위 큐 + 예의 큐), robots.txt 준�
 4. WHEN URL_Frontier가 비어 있을 때, THE Crawler SHALL BFS 루프를 정상 종료한다.
 5. WHEN Content_Parser가 URL을 추출할 때, THE Crawler SHALL 각 추출된 URL에 현재 페이지의 Crawl_Depth에 1을 더한 값을 부여한 후 URL_Filter를 통과한 URL만 URL_Frontier에 삽입한다. 단, 현재 페이지의 Crawl_Depth가 최대 크롤링 깊이와 같으면 추출된 URL은 어차피 깊이 초과로 거부되므로 URL_Filter에 넘기지 않고 삽입을 건너뛰며, 이 URL들은 건너뛴 URL 수와 거부 로그에 포함하지 않는다.
 6. THE Crawler SHALL 크롤링 세션 종료 후 표준 출력으로 총 수집 페이지 수(Content_Store 저장 수), URL_Filter 및 Downloader에서 건너뛴 URL 수의 합산, 중복 감지 수, 범위 밖 링크 수, 소요 시간(초 단위)을 포함한 요약 통계를 출력한다.
-7. THE Crawler SHALL 기본적으로 Seed_URL과 정확히 같은 호스트의 URL만 크롤링한다. 허용 도메인이 지정되면 그 도메인과 모든 하위 도메인을 추가로 허용하고, 전체 허용 옵션이 켜지면 호스트를 제한하지 않는다. 범위 밖 링크는 URL_Frontier에 삽입하지 않고 경고 없이 무시하며 건너뛴 URL 수가 아닌 범위 밖 링크 수로 따로 집계한다. 호스트를 알 수 없는 URL(형식 오류)은 범위 판정 대상이 아니며 URL_Filter가 거부한다.
+7. THE Crawler SHALL 기본적으로 Seed_URL과 정확히 같은 호스트의 URL만 크롤링한다. 허용 도메인이 지정되면 그 도메인과 모든 하위 도메인을 추가로 허용하고, 전체 허용 옵션이 켜지면 호스트를 제한하지 않는다. 범위 밖 링크는 URL_Frontier에 삽입하지 않고 경고 없이 무시하며 건너뛴 URL 수가 아닌 범위 밖 링크 수로 따로 집계한다. 호스트를 알 수 없는 URL(형식 오류)은 범위 판정 대상이 아니며 URL_Filter가 거부한다. Seed_URL은 항상 범위 안이며 시드가 여러 개이면 각 시드 호스트의 합집합이 범위이다. 리다이렉트 대상도 추출된 링크와 같은 범위 판정을 받는다.
 
 ---
 
