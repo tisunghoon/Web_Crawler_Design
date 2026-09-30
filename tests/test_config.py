@@ -63,3 +63,18 @@ def test_default_user_agent_identifies_crawler():
 def test_blank_user_agent_is_invalid(agent):
     with pytest.raises(ValueError):
         CrawlerConfig(user_agent=agent).validate()
+
+
+def test_scope_defaults_are_restrictive():
+    config = CrawlerConfig()
+    assert config.allowed_domains == () and config.allow_any_domain is False
+
+
+@pytest.mark.parametrize("domain", ["", "  ", "http://example.com", "example.com/path", "example.com:8080"])
+def test_invalid_allowed_domain_is_rejected(domain):
+    with pytest.raises(ValueError):
+        CrawlerConfig(allowed_domains=(domain,)).validate()
+
+
+def test_valid_allowed_domains_pass():
+    CrawlerConfig(allowed_domains=("example.com", "shop.example.org")).validate()

@@ -56,3 +56,13 @@ def test_user_agent_option_is_sent(server):
 def test_default_user_agent_is_sent(server):
     assert main([server.url_for("/"), "--delay", "0"]) == 0
     assert all("web-crawler-toy" in req.headers["User-Agent"] for req, _ in server.log)
+
+
+def test_allow_domain_and_any_domain_options_are_accepted(server):
+    assert main([server.url_for("/"), "--delay", "0", "--allow-domain", "example.com", "--allow-domain", "example.org"]) == 0
+    assert main([server.url_for("/"), "--delay", "0", "--allow-any-domain"]) == 0
+
+
+def test_invalid_allow_domain_returns_2(capsys):
+    assert main(["http://example.com", "--allow-domain", "http://bad"]) == 2
+    assert "오류" in capsys.readouterr().err

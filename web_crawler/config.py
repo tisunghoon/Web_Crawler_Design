@@ -11,6 +11,8 @@ class CrawlerConfig:
     save_to_file: bool = False
     output_path: str = "crawl_output.jsonl"
     user_agent: str = DEFAULT_USER_AGENT
+    allowed_domains: tuple[str, ...] = ()
+    allow_any_domain: bool = False
 
     def validate(self) -> None:
         if not 1 <= self.max_depth <= 10:
@@ -21,3 +23,6 @@ class CrawlerConfig:
             raise ValueError(f"politeness_delay는 0~60초여야 합니다: {self.politeness_delay}")
         if not self.user_agent.strip():
             raise ValueError("user_agent는 비어 있을 수 없습니다.")
+        for domain in self.allowed_domains:
+            if not domain.strip() or any(ch in domain for ch in "/:"):
+                raise ValueError(f"allowed_domains에는 도메인 이름만 쓸 수 있습니다: {domain!r}")

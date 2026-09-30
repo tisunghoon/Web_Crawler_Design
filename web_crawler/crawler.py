@@ -12,6 +12,7 @@ from web_crawler.frontier import URLFrontier
 from web_crawler.models import CrawlSummary, StoredPage
 from web_crawler.parser import ContentParser
 from web_crawler.robots_cache import RobotsTxtCache
+from web_crawler.scope import Scope
 from web_crawler.url_filter import URLFilter
 from web_crawler.visited_store import VisitedURLStore
 
@@ -38,6 +39,7 @@ class Crawler:
     ) -> None:
         self.config = config
         self._clock = clock
+        self.scope = Scope(seed_urls, config.allowed_domains, config.allow_any_domain)
         self.visited = VisitedURLStore()
         self.url_filter = URLFilter(self.visited, config.max_depth)
         self.frontier = URLFrontier(config.politeness_delay, clock=clock, sleep=sleep)
@@ -49,6 +51,7 @@ class Crawler:
         self.store = ContentStore()
         self._skipped = 0
         self._duplicates = 0
+        self._out_of_scope = 0
         for url in seed_urls:
             self.frontier.push(url, SEED_PRIORITY, 0)
 
@@ -96,6 +99,7 @@ class Crawler:
             duplicate_count=self._duplicates,
             elapsed_seconds=self._clock() - started,
             save_failed=save_failed,
+            out_of_scope_count=self._out_of_scope,
         )
         logger.info("크롤링 종료 %s", summary)
         self._print_summary(summary)
@@ -152,6 +156,11 @@ class Crawler:
             self._enqueue(link, depth + 1)
 
     def _enqueue(self, url: str, depth: int) -> None:
+        if self.scope.excludes(url):
+            # 범위 밖 링크는 흔하므로 경고나 건너뜀 집계 대신 따로 센다.
+            self._out_of_scope += 1
+            logger.debug("범위 밖 URL을 무시합니다 url=%s", url)
+            return
         allowed, _ = self.url_filter.is_allowed(url, depth)
         if allowed:
             self.frontier.push(url, priority_for(depth), depth)
@@ -164,6 +173,7 @@ class Crawler:
         print(f"수집한 페이지 수: {summary.total_pages}")
         print(f"건너뛴 URL 수: {summary.skipped_urls}")
         print(f"중복 감지 수: {summary.duplicate_count}")
+        print(f"범위 밖 링크 수: {summary.out_of_scope_count}")
         print(f"소요 시간: {summary.elapsed_seconds:.2f}초")
         if summary.save_failed:
             print("파일 저장: 실패")
