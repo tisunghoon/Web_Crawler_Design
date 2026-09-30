@@ -7,7 +7,10 @@ from urllib.parse import urlparse
 
 
 def _host(url: str) -> str:
-    return (urlparse(url).hostname or "").lower()
+    try:
+        return (urlparse(url).hostname or "").lower()
+    except ValueError:  # 파싱 불가 URL은 빈 호스트 버킷으로 보내고 필터가 거부한다
+        return ""
 
 
 class URLFrontier:

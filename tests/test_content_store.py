@@ -85,3 +85,9 @@ def test_flush_failure_returns_false_and_logs(tmp_path, caplog):
     bad_path = tmp_path / "missing_dir" / "out.jsonl"
     assert store.flush_to_file(str(bad_path)) is False
     assert "파일 저장 실패" in caplog.text
+
+
+def test_flush_encoding_failure_returns_false(tmp_path):
+    store = ContentStore()
+    store.save(make_page(body="깨진 문자 \ud800"))
+    assert store.flush_to_file(str(tmp_path / "out.jsonl")) is False

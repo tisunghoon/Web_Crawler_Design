@@ -65,7 +65,10 @@ def test_rejection_is_logged(caplog):
 
 
 # Feature: web-crawler-toy, Property 6: 거부하면 사유 문자열이, 허용하면 None이 함께 반환된다
-@given(st.text(), st.integers(min_value=0, max_value=20))
+malformed = st.from_regex(r"https?://\[[a-z0-9:]{0,5}", fullmatch=True)
+
+
+@given(st.one_of(st.text(), malformed), st.integers(min_value=0, max_value=20))
 def test_result_and_reason_are_consistent(url, depth):
     allowed, reason = make_filter()[0].is_allowed(url, depth)
     if allowed:
@@ -83,3 +86,8 @@ def test_repeated_segment_is_rejected(others, seg):
     path = "/".join(others + [seg, seg.upper(), seg.lower()])
     allowed, reason = make_filter(max_depth=10)[0].is_allowed(f"http://a.com/{path}", 0)
     assert (allowed, reason) == (False, "경로 반복")
+
+
+@pytest.mark.parametrize("url", ["http://[bad", "http://[::1", "https://[abc]x"])
+def test_unparseable_url_is_rejected_not_raised(url):
+    assert make_filter()[0].is_allowed(url, 0) == (False, "URL 형식 오류")

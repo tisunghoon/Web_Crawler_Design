@@ -98,8 +98,11 @@ class Crawler:
 
     def _process(self, url: str, depth: int) -> None:
         allowed, _ = self.url_filter.is_allowed(url, depth)
+        if not allowed:
+            self._skipped += 1
+            return
         host = urlparse(url).hostname
-        if not allowed or not host or self.resolver.resolve(host) is None:
+        if not host or self.resolver.resolve(host) is None:
             self._skipped += 1
             return
 
