@@ -134,7 +134,7 @@ def test_max_depth_limits_crawl():
     summary = crawler.run()
     assert "/deep" not in fetched_paths()
     assert summary.total_pages == 2
-    assert summary.skipped_urls == 1  # /deep: 깊이 초과
+    assert summary.skipped_urls == 0  # 최대 깊이 페이지의 링크는 건너뜀으로 집계하지 않는다
 
 
 @responses.activate
@@ -316,3 +316,24 @@ def test_unexpected_error_on_one_url_is_logged_and_crawl_continues(caplog):
     assert summary.total_pages == 2  # /, /ok
     assert summary.skipped_urls == 1
     assert "예상 못 한 오류" in caplog.text and "http://a.com/boom" in caplog.text
+
+
+@responses.activate
+def test_links_from_max_depth_pages_are_not_filtered_or_logged(caplog):
+    robots(status=404)
+    page("/", "/a")
+    page("/a", "/x", "/y", "/z")
+    crawler, _ = make_crawler(["http://a.com/"], CrawlerConfig(max_depth=1, politeness_delay=0))
+    summary = crawler.run()
+    assert summary.skipped_urls == 0
+    assert "깊이 초과" not in caplog.text
+    assert crawler.frontier.is_empty()
+
+
+@responses.activate
+def test_real_skips_stay_visible_at_max_depth():
+    robots("User-agent: *\nDisallow: /private")
+    page("/", "/missing", "/private")
+    responses.add(responses.GET, "http://a.com/missing", status=404)
+    crawler, _ = make_crawler(["http://a.com/"], CrawlerConfig(max_depth=1, politeness_delay=0))
+    assert crawler.run().skipped_urls == 2  # 404와 robots 금지는 여전히 집계된다
