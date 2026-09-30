@@ -3,7 +3,7 @@ name = "web-crawler-toy"
 version = "0.1.0"
 description = "웹 크롤러 시스템 설계 학습용 토이 프로젝트"
 requires-python = ">=3.10"
-dependencies = ["requests>=2.31", "beautifulsoup4>=4.12"]
+dependencies = ["requests>=2.31", "urllib3>=2", "beautifulsoup4>=4.12"]
 
 [tool.setuptools]
 packages = ["web_crawler"]
