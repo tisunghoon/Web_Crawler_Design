@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.hypothesis/
+.idea/
+.omc/state/
+.omc/project-memory.json
+crawl_output.jsonl
