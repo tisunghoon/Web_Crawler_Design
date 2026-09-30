@@ -47,6 +47,7 @@ python3 -m venv .venv
 | `--max-pages N` | 1000 | 저장할 최대 페이지 수 (1~100,000) |
 | `--delay SEC` | 1.0 | 같은 호스트에 대한 요청 간 최소 간격 (0~60초) |
 | `--output PATH` | 없음 | 수집 결과를 저장할 JSON Lines 파일 (최대 10,000 레코드) |
+| `--user-agent TEXT` | `web-crawler-toy/0.1 (learning project)` | 모든 요청(robots.txt 포함)에 실을 User-Agent |
 | `-v`, `--verbose` | 꺼짐 | INFO 로그 출력 |
 
 종료 코드: 정상 `0`, 잘못된 입력(빈/무효 시드, 범위 밖 설정) `2`, 파일 저장 실패 `1`.
@@ -183,4 +184,5 @@ robots.txt를 URL마다 다시 요청하지 않습니다. 규칙 매칭은 표�
 - URL 정규화를 하지 않습니다. `#fragment`나 끝의 `/` 차이는 서로 다른 URL로 취급합니다.
 - 상태를 메모리에만 두므로 중단 후 재개할 수 없습니다.
 - robots.txt는 `User-agent: *` 그룹만 봅니다. 특정 봇 이름 전용 그룹은 무시합니다.
+- User-Agent는 크롤러임을 밝히는 값을 쓰도록 만들었습니다. 브라우저를 흉내 내거나 403 같은 차단을 우회하는 기능은 넣지 않았습니다.
 - 실제 서비스를 크롤링할 때는 대상 사이트의 이용 약관과 robots.txt를 확인하고 `--delay`를 넉넉히 두세요.
