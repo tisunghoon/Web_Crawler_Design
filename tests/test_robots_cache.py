@@ -178,3 +178,10 @@ def test_invalid_crawl_delay_is_ignored():
     cache = RobotsTxtCache()
     cache.is_allowed("http://a.com/x")
     assert cache.get_crawl_delay("a.com") is None
+
+
+@responses.activate
+def test_robots_request_sends_user_agent():
+    responses.add(responses.GET, ROBOTS, body="")
+    RobotsTxtCache("robots-bot/3.0").is_allowed("http://a.com/x")
+    assert responses.calls[0].request.headers["User-Agent"] == "robots-bot/3.0"

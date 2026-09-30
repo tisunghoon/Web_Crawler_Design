@@ -174,3 +174,12 @@ def test_unparseable_location_is_error_without_retry(downloader, visited, sleeps
     assert visited.contains(URL)
     assert len(page_calls()) == 1
     assert sleeps == []
+
+
+@responses.activate
+def test_sends_configured_user_agent_for_page_and_robots(visited, sleeps):
+    responses.add(responses.GET, "http://a.com/robots.txt", status=404)
+    responses.add(responses.GET, URL, body="x", **HTML)
+    downloader = Downloader(RobotsTxtCache("my-bot/1.0"), visited, sleep=sleeps.append, user_agent="my-bot/1.0")
+    downloader.download(URL, 0)
+    assert [c.request.headers["User-Agent"] for c in responses.calls] == ["my-bot/1.0", "my-bot/1.0"]

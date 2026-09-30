@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import UnicodeDammit
 
+from web_crawler.config import DEFAULT_USER_AGENT
 from web_crawler.models import DownloadResult
 from web_crawler.robots_cache import RobotsTxtCache
 from web_crawler.visited_store import VisitedURLStore
@@ -24,8 +25,10 @@ class Downloader:
         robots: RobotsTxtCache,
         visited: VisitedURLStore,
         sleep: Callable[[float], None] = time.sleep,
+        user_agent: str = DEFAULT_USER_AGENT,
     ) -> None:
         self._robots = robots
+        self._headers = {"User-Agent": user_agent}
         self._visited = visited
         self._sleep = sleep
         self._redirect_hops: dict[str, int] = {}
@@ -49,7 +52,9 @@ class Downloader:
             if attempt:
                 self._sleep(RETRY_INTERVAL)
             try:
-                response = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+                response = requests.get(
+                    url, timeout=REQUEST_TIMEOUT, allow_redirects=False, headers=self._headers
+                )
             except ValueError as e:  # InvalidURL 포함. 예: Location이 "http://[bad"는 재시도해도 같다
                 return None, f"잘못된 URL 또는 Location: {e}"
             except requests.RequestException as e:

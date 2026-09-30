@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 
 import requests
 
+from web_crawler.config import DEFAULT_USER_AGENT
+
 logger = logging.getLogger(__name__)
 
 MAX_CRAWL_DELAY = 300.0
@@ -75,7 +77,8 @@ def _longest_match(rules: list[_Rule], target: str) -> int:
 class RobotsTxtCache:
     """도메인(호스트:포트)별 robots.txt 규칙을 한 번만 가져와 캐시한다."""
 
-    def __init__(self) -> None:
+    def __init__(self, user_agent: str = DEFAULT_USER_AGENT) -> None:
+        self._user_agent = user_agent
         self._rules: dict[str, RobotsRules] = {}
 
     def is_allowed(self, url: str) -> bool:
@@ -98,7 +101,9 @@ class RobotsTxtCache:
         robots_url = f"{scheme}://{domain}/robots.txt"
         text = ""
         try:
-            response = requests.get(robots_url, timeout=REQUEST_TIMEOUT)
+            response = requests.get(
+                robots_url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": self._user_agent}
+            )
         except requests.RequestException as e:
             logger.warning("robots.txt 요청 실패 url=%s: %s", robots_url, e)
         else:

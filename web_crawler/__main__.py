@@ -14,6 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-pages", type=int, default=defaults.max_pages, help="최대 수집 페이지 수 1~100000 (기본 %(default)s)")
     parser.add_argument("--delay", type=float, default=defaults.politeness_delay, help="같은 호스트 요청 간 최소 간격(초) 0~60 (기본 %(default)s)")
     parser.add_argument("--output", metavar="PATH", help="수집 결과를 저장할 JSON Lines 파일 경로")
+    parser.add_argument("--user-agent", default=defaults.user_agent, help="요청에 실을 User-Agent. 크롤러임을 밝히는 값을 쓰세요 (기본 %(default)r)")
     parser.add_argument("-v", "--verbose", action="store_true", help="INFO 로그 출력")
     return parser
 
@@ -29,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
         max_depth=args.max_depth,
         max_pages=args.max_pages,
         politeness_delay=args.delay,
+        user_agent=args.user_agent,
         **options,
     )
     try:
