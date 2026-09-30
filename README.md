@@ -35,6 +35,7 @@ python3 -m venv .venv
 수집한 페이지 수: 3
 건너뛴 URL 수: 0
 중복 감지 수: 0
+범위 밖 링크 수: 0
 소요 시간: 0.01초
 ```
 
@@ -47,8 +48,12 @@ python3 -m venv .venv
 | `--max-pages N` | 1000 | 저장할 최대 페이지 수 (1~100,000) |
 | `--delay SEC` | 1.0 | 같은 호스트에 대한 요청 간 최소 간격 (0~60초) |
 | `--output PATH` | 없음 | 수집 결과를 저장할 JSON Lines 파일 (최대 10,000 레코드) |
+| `--allow-domain DOMAIN` | 없음 | 시드 호스트 외에 허용할 도메인. 하위 도메인도 포함. 여러 번 지정 가능 |
+| `--allow-any-domain` | 꺼짐 | 범위 제한을 끄고 모든 호스트를 따라감 |
 | `--user-agent TEXT` | `web-crawler-toy/0.1 (learning project)` | 모든 요청(robots.txt 포함)에 실을 User-Agent |
 | `-v`, `--verbose` | 꺼짐 | INFO 로그 출력 |
+
+기본 범위는 **시드와 정확히 같은 호스트**입니다. `shop.example.com`을 시드로 주면 `www.example.com`은 따라가지 않습니다. 같은 사이트의 다른 하위 도메인까지 보려면 `--allow-domain example.com`을 쓰세요. 범위 밖 링크는 경고 없이 무시하고 요약의 "범위 밖 링크 수"로만 셉니다.
 
 종료 코드: 정상 `0`, 잘못된 입력(빈/무효 시드, 범위 밖 설정) `2`, 파일 저장 실패 `1`.
 
@@ -89,6 +94,7 @@ flowchart TD
 ```
 web_crawler/
 ├── crawler.py        Crawler: 초기화 검증, BFS 루프, 요약 출력
+├── scope.py          Scope: 크롤링 범위(시드 호스트, 허용 도메인)
 ├── config.py         CrawlerConfig, 범위 검증
 ├── frontier.py       URLFrontier: 우선순위 힙 + 호스트별 예의 큐
 ├── dns_resolver.py   DNSResolver: TTL 캐시
@@ -106,7 +112,7 @@ tests/                컴포넌트별 테스트 + 통합 테스트
 
 | 컴포넌트 | 요구사항 | 핵심 |
 |----------|----------|------|
-| `Crawler` | 1, 10, 11.5~11.6 | 시드 검증·중복 제거, BFS, 요약 통계 |
+| `Crawler` | 1, 10, 11.5~11.6 | 시드 검증·중복 제거, BFS, 크롤링 범위, 요약 통계 |
 | `URLFrontier` | 2 | 우선순위 힙, 호스트별 버킷, politeness 대기 |
 | `DNSResolver` | 3 | 기본 TTL 600초, 만료 시 제거 후 재조회, 실패는 `None` |
 | `RobotsTxtCache` | 4 | `User-agent: *` 그룹의 Allow/Disallow(`*`, `$` 와일드카드, 가장 긴 패턴 우선), Crawl-delay 상한 300초 |
