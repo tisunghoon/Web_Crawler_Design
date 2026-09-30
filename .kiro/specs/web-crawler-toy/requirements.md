@@ -200,9 +200,23 @@ BFS 기반 탐색, URL Frontier(우선순위 큐 + 예의 큐), robots.txt 준�
 
 #### 인수 기준
 
-1. WHEN Duplicate_Detector가 페이지 저장을 허용할 때, THE Content_Store SHALL 각 페이지를 `{url, title, body_text, extracted_urls, crawled_at, md5_hash}` 구조로 저장하며, 동일 URL이 재저장될 경우 기존 항목을 덮어쓴다.
+1. WHEN Duplicate_Detector가 페이지 저장을 허용할 때, THE Content_Store SHALL 각 페이지를 `{url, title, body_text, extracted_urls, crawled_at, md5_hash, products}` 구조로 저장하며, 동일 URL이 재저장될 경우 기존 항목을 덮어쓴다.
 2. WHEN Content_Store에 페이지가 저장될 때, THE Content_Store SHALL 저장 시각(crawled_at)을 UTC 기준 ISO 8601 형식으로 기록한다.
 3. WHEN URL을 키로 페이지를 조회할 때, THE Content_Store SHALL 저장된 페이지를 O(1)로 반환하며, URL이 존재하지 않으면 해당 URL이 없음을 나타내는 값(null 또는 None)을 반환한다.
 4. THE Content_Store SHALL 저장된 모든 페이지의 URL 목록을 순서 없이 반환하는 기능을 제공한다.
 5. WHERE 파일 저장 옵션이 활성화된 경우, THE Content_Store SHALL 크롤링 세션 종료 시 최대 10,000개 레코드를 JSON Lines 형식의 파일로 저장한다.
 6. WHEN 파일 저장 중 오류가 발생할 때, THE Content_Store SHALL 오류 원인을 로그에 기록하고 요약 통계에 저장 실패를 반영한다.
+
+---
+
+### 요구사항 12: 사이트별 상품 추출
+
+**사용자 스토리:** 학습자로서, 범용 본문 텍스트에 섞이는 메뉴와 다른 상품 정보 대신 상품명과 가격을 구조화해서 얻고 싶다. 그래야 크롤링 결과를 실제 데이터로 활용할 수 있다.
+
+#### 인수 기준
+
+1. WHERE 추출기가 지정된 경우, THE Crawler SHALL 저장이 허용된 각 페이지의 HTML에서 지정된 사이트별 추출기로 `{pcode, name, option, price, url}` 구조의 상품 목록을 추출해 페이지와 함께 저장한다. 추출기가 지정되지 않으면 상품 목록은 빈 목록이다.
+2. THE 추출기 SHALL 사이트가 자주 바꾸는 스타일 유틸리티 클래스가 아니라 의미 있는 카드 클래스와 접근성 속성(aria-label)에 기대어 상품을 식별한다.
+3. THE 추출기 SHALL 상품 식별자(pcode)가 없는 광고 링크와, 이름이나 가격이 없는 카드를 결과에서 제외하고, 같은 pcode는 한 번만 보고한다.
+4. IF 추출 중 예외가 발생할 때, THEN THE Crawler SHALL 오류와 원인을 로그에 기록하고 상품 없이 페이지 저장을 계속한다.
+5. WHERE 추출기가 지정된 경우, THE Crawler SHALL 요약 통계에 추출한 상품 수를 포함해 출력한다.

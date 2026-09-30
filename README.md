@@ -50,8 +50,16 @@ python3 -m venv .venv
 | `--output PATH` | 없음 | 수집 결과를 저장할 JSON Lines 파일 (최대 10,000 레코드) |
 | `--allow-domain DOMAIN` | 없음 | 시드 호스트 외에 허용할 도메인. 하위 도메인도 포함. 여러 번 지정 가능 |
 | `--allow-any-domain` | 꺼짐 | 범위 제한을 끄고 모든 호스트를 따라감 |
+| `--extract NAME` | 없음 | 사이트별 상품 추출기. 현재 `danawa`. 저장 결과의 `products`에 `{pcode, name, option, price, url}` 목록이 들어감 |
 | `--user-agent TEXT` | `web-crawler-toy/0.1 (learning project)` | 모든 요청(robots.txt 포함)에 실을 User-Agent |
 | `-v`, `--verbose` | 꺼짐 | INFO 로그 출력 |
+
+상품 정보가 필요하면 `--extract danawa`를 씁니다. 예를 들어 다나와 노트북 목록 페이지에서 상품명, 옵션, 가격을 구조화해서 얻습니다(카테고리 목록 URL은 다나와 사이트맵 페이지 `https://www.danawa.com/info/map.html`에 있습니다).
+
+```bash
+.venv/bin/python -m web_crawler "https://prod.danawa.com/list/?cate=112758" \
+  --extract danawa --max-pages 1 --delay 2 --output notebooks.jsonl
+```
 
 기본 범위는 **시드와 정확히 같은 호스트**입니다. `shop.example.com`을 시드로 주면 `www.example.com`은 따라가지 않습니다. 같은 사이트의 다른 하위 도메인까지 보려면 `--allow-domain example.com`을 쓰세요. 범위 밖 링크는 경고 없이 무시하고 요약의 "범위 밖 링크 수"로만 셉니다.
 
@@ -105,6 +113,7 @@ web_crawler/
 ├── url_filter.py     URLFilter: 크롤러 트랩 방지
 ├── visited_store.py  VisitedURLStore: 방문 URL 집합
 ├── content_store.py  ContentStore: 페이지 저장, JSON Lines 내보내기
+├── extractors/       사이트별 상품 추출기 (danawa)
 ├── models.py         공통 dataclass
 └── __main__.py       CLI 진입점
 tests/                컴포넌트별 테스트 + 통합 테스트
@@ -121,6 +130,7 @@ tests/                컴포넌트별 테스트 + 통합 테스트
 | `DuplicateDetector` | 7 | 태그·앞뒤 공백 제거 후 MD5, `new`/`duplicate`/`empty` |
 | `URLFilter` | 8 | 스킴, 길이 2,048, 깊이, 경로 세그먼트 3회 반복, 방문 여부 |
 | `VisitedURLStore` | 9 | `set` 기반 O(1) 조회 |
+| `extractors/` | 12 | 다나와 상품 카드에서 이름, 옵션, 가격 추출. 광고와 빈 카드 제외 |
 | `ContentStore` | 11 | URL 키 dict, UTC ISO 8601 `crawled_at`, JSONL 저장 |
 
 ## 학습 포인트
