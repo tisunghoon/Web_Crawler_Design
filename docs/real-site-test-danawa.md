@@ -38,7 +38,7 @@
 
 **카테고리 목록 URL을 얻은 경로.** 홈페이지의 카테고리 메뉴는 자바스크립트로 그려지지만, `robots.txt`가 `Sitemap: https://www.danawa.com/sitemap.xml`을 알려주고, 그 사이트맵에 있는 사람용 사이트맵 페이지 `https://www.danawa.com/info/map.html`에 `prod.danawa.com/list/?cate=…` 링크 124개가 정적 HTML로 들어 있습니다. 노트북(`cate=112758`), 브랜드PC/조립PC(`cate=112756`), 컴퓨터 BEST(`cate=11241973`) 등이 여기 있습니다. 브라우저 자동화 없이 카테고리에 도달할 수 있고, 목록 페이지는 상품을 서버에서 렌더링합니다.
 
-**조건.** 시드 3개(`--extract danawa --max-depth 1 --max-pages 3 --delay 2`), 식별 UA, `prod.danawa.com/robots.txt` 허용 확인. 요청 8회: 사이트맵 XML 1, 사이트맵 페이지 1, prod robots.txt 2(수동 확인 1, 크롤러 1), 목록 페이지 수동 저장 1(분석용), 크롤러 실행에서 목록 페이지 3.
+**조건.** 시드 3개(`--extract danawa --max-depth 1 --max-pages 3 --delay 2`), 식별 UA, `prod.danawa.com/robots.txt` 허용 확인. 요청 8회(리다이렉트 제외): 사이트맵 XML 1, 사이트맵 페이지 1, prod robots.txt 2(수동 확인 1, 크롤러 1), 목록 페이지 수동 저장 1(분석용), 크롤러 실행에서 목록 페이지 3. 컴퓨터 BEST 시드는 리다이렉트되어 크롤러가 리다이렉트 대상을 1회 더 요청했습니다.
 
 **결과.** 수집 3, 건너뜀 2(목록끼리 서로 링크해서 이미 방문한 URL), 중복 0, 범위 밖 링크 174, **추출한 상품 278**, 8.8초.
 
