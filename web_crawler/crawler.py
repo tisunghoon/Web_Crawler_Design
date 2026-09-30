@@ -82,7 +82,12 @@ class Crawler:
 
         while not self.frontier.is_empty() and self.store.count() < self.config.max_pages:
             url, depth = self.frontier.pop()
-            self._process(url, depth)
+            try:
+                self._process(url, depth)
+            except Exception:
+                # URL 하나의 예상 못 한 오류가 세션 전체를 중단시키지 않게 한다. 원인은 로그로 남긴다.
+                logger.exception("URL 처리 중 예상 못 한 오류 url=%s", url)
+                self._skipped += 1
 
         save_failed = self.config.save_to_file and not self.store.flush_to_file(self.config.output_path)
         summary = CrawlSummary(

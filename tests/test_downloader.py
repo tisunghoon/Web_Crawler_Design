@@ -163,3 +163,14 @@ def test_header_charset_takes_precedence(downloader):
     body = f"<html><body>{KOREAN}</body></html>".encode("euc-kr")
     responses.add(responses.GET, URL, body=body, content_type="text/html; charset=euc-kr")
     assert KOREAN in downloader.download(URL, 0).html
+
+
+@responses.activate
+@pytest.mark.parametrize("location", ["http://[bad", "//[bad"])
+def test_unparseable_location_is_error_without_retry(downloader, visited, sleeps, location):
+    responses.add(responses.GET, URL, status=302, headers={"Location": location})
+    result = downloader.download(URL, 0)
+    assert result.status == "error"
+    assert visited.contains(URL)
+    assert len(page_calls()) == 1
+    assert sleeps == []

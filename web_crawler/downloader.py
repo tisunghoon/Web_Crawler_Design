@@ -50,6 +50,8 @@ class Downloader:
                 self._sleep(RETRY_INTERVAL)
             try:
                 response = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+            except ValueError as e:  # InvalidURL 포함. 예: Location이 "http://[bad"는 재시도해도 같다
+                return None, f"잘못된 URL 또는 Location: {e}"
             except requests.RequestException as e:
                 failure = f"요청 실패: {e}"
                 continue
