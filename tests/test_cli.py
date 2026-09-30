@@ -46,3 +46,13 @@ def test_output_option_writes_jsonl(server, tmp_path):
 def test_output_failure_returns_1(server, tmp_path):
     bad = tmp_path / "nodir" / "result.jsonl"
     assert main([server.url_for("/"), "--delay", "0", "--output", str(bad)]) == 1
+
+
+def test_user_agent_option_is_sent(server):
+    assert main([server.url_for("/"), "--delay", "0", "--user-agent", "cli-bot/2.0"]) == 0
+    assert {req.headers["User-Agent"] for req, _ in server.log} == {"cli-bot/2.0"}
+
+
+def test_default_user_agent_is_sent(server):
+    assert main([server.url_for("/"), "--delay", "0"]) == 0
+    assert all("web-crawler-toy" in req.headers["User-Agent"] for req, _ in server.log)

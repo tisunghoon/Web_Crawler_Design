@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+DEFAULT_USER_AGENT = "web-crawler-toy/0.1 (learning project)"
+
 
 @dataclass(frozen=True)
 class CrawlerConfig:
@@ -8,6 +10,7 @@ class CrawlerConfig:
     politeness_delay: float = 1.0
     save_to_file: bool = False
     output_path: str = "crawl_output.jsonl"
+    user_agent: str = DEFAULT_USER_AGENT
 
     def validate(self) -> None:
         if not 1 <= self.max_depth <= 10:
@@ -16,3 +19,5 @@ class CrawlerConfig:
             raise ValueError(f"max_pages는 1~100,000이어야 합니다: {self.max_pages}")
         if not 0 <= self.politeness_delay <= 60:
             raise ValueError(f"politeness_delay는 0~60초여야 합니다: {self.politeness_delay}")
+        if not self.user_agent.strip():
+            raise ValueError("user_agent는 비어 있을 수 없습니다.")

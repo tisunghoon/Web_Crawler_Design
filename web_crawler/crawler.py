@@ -42,8 +42,8 @@ class Crawler:
         self.url_filter = URLFilter(self.visited, config.max_depth)
         self.frontier = URLFrontier(config.politeness_delay, clock=clock, sleep=sleep)
         self.resolver = resolver
-        self.robots = RobotsTxtCache()
-        self.downloader = Downloader(self.robots, self.visited, sleep=sleep)
+        self.robots = RobotsTxtCache(config.user_agent)
+        self.downloader = Downloader(self.robots, self.visited, sleep=sleep, user_agent=config.user_agent)
         self.parser = ContentParser()
         self.detector = DuplicateDetector()
         self.store = ContentStore()

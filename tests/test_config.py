@@ -53,3 +53,13 @@ def test_config_is_frozen():
 def test_models_defaults():
     assert ParsedPage(url="u", title="", body_text="").extracted_urls == []
     assert CrawlSummary(1, 0, 0, 0.1).save_failed is False
+
+
+def test_default_user_agent_identifies_crawler():
+    assert "web-crawler-toy" in CrawlerConfig().user_agent
+
+
+@pytest.mark.parametrize("agent", ["", "   "])
+def test_blank_user_agent_is_invalid(agent):
+    with pytest.raises(ValueError):
+        CrawlerConfig(user_agent=agent).validate()
