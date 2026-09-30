@@ -1,0 +1,87 @@
+import pytest
+import requests
+import responses
+
+from web_crawler.robots_cache import RobotsTxtCache
+
+ROBOTS = "http://a.com/robots.txt"
+
+
+@responses.activate
+def test_fetches_once_and_reuses_cache():
+    responses.add(responses.GET, ROBOTS, body="User-agent: *\nDisallow: /private")
+    cache = RobotsTxtCache()
+    cache.is_allowed("http://a.com/x")
+    cache.is_allowed("http://a.com/y")
+    cache.get_crawl_delay("a.com")
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_each_domain_is_fetched_separately():
+    responses.add(responses.GET, ROBOTS, body="")
+    responses.add(responses.GET, "https://b.com/robots.txt", body="")
+    cache = RobotsTxtCache()
+    cache.is_allowed("http://a.com/x")
+    cache.is_allowed("https://b.com/x")
+    assert [c.request.url for c in responses.calls] == [ROBOTS, "https://b.com/robots.txt"]
+
+
+@responses.activate
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("http://a.com/private", False),
+        ("http://a.com/private/deep/page", False),
+        ("http://a.com/privatex", False),  # prefix 매칭
+        ("http://a.com/public", True),
+        ("http://a.com/", True),
+    ],
+)
+def test_disallow_uses_prefix_matching(url, expected):
+    responses.add(responses.GET, ROBOTS, body="User-agent: *\nDisallow: /private")
+    assert RobotsTxtCache().is_allowed(url) is expected
+
+
+@responses.activate
+def test_only_wildcard_section_applies():
+    responses.add(responses.GET, ROBOTS, body="User-agent: Googlebot\nDisallow: /\n")
+    assert RobotsTxtCache().is_allowed("http://a.com/x") is True
+
+
+@responses.activate
+def test_404_allows_everything_and_is_cached():
+    responses.add(responses.GET, ROBOTS, status=404)
+    cache = RobotsTxtCache()
+    assert cache.is_allowed("http://a.com/anything") is True
+    assert cache.is_allowed("http://a.com/other") is True
+    assert cache.get_crawl_delay("a.com") is None
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_request_failure_allows_everything(caplog):
+    responses.add(responses.GET, ROBOTS, body=requests.ConnectionError("boom"))
+    assert RobotsTxtCache().is_allowed("http://a.com/x") is True
+    assert "robots.txt 요청 실패" in caplog.text
+
+
+@responses.activate
+@pytest.mark.parametrize("value, expected", [("5", 5.0), ("999", 300.0), ("300", 300.0)])
+def test_crawl_delay_is_capped_at_300(value, expected):
+    responses.add(responses.GET, ROBOTS, body=f"User-agent: *\nCrawl-delay: {value}")
+    cache = RobotsTxtCache()
+    cache.is_allowed("http://a.com/x")
+    assert cache.get_crawl_delay("a.com") == expected
+
+
+@responses.activate
+def test_no_crawl_delay_returns_none():
+    responses.add(responses.GET, ROBOTS, body="User-agent: *\nDisallow: /p")
+    cache = RobotsTxtCache()
+    cache.is_allowed("http://a.com/x")
+    assert cache.get_crawl_delay("a.com") is None
+
+
+def test_crawl_delay_for_unfetched_domain_is_none():
+    assert RobotsTxtCache().get_crawl_delay("never.com") is None
