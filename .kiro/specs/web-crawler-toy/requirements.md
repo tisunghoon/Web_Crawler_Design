@@ -187,7 +187,7 @@ BFS 기반 탐색, URL Frontier(우선순위 큐 + 예의 큐), robots.txt 준�
 2. WHEN Crawler의 BFS 루프가 실행되는 동안, THE Crawler SHALL 깊이 N의 모든 URL 처리가 완료된 후에만 깊이 N+1의 URL 처리를 시작한다.
 3. WHEN Content_Store에 저장된 페이지 수가 설정된 최대 페이지 수에 도달할 때, THE Crawler SHALL BFS 루프를 즉시 종료한다.
 4. WHEN URL_Frontier가 비어 있을 때, THE Crawler SHALL BFS 루프를 정상 종료한다.
-5. WHEN Content_Parser가 URL을 추출할 때, THE Crawler SHALL 각 추출된 URL에 현재 페이지의 Crawl_Depth에 1을 더한 값을 부여한 후 URL_Filter를 통과한 URL만 URL_Frontier에 삽입한다.
+5. WHEN Content_Parser가 URL을 추출할 때, THE Crawler SHALL 각 추출된 URL에 현재 페이지의 Crawl_Depth에 1을 더한 값을 부여한 후 URL_Filter를 통과한 URL만 URL_Frontier에 삽입한다. 단, 현재 페이지의 Crawl_Depth가 최대 크롤링 깊이와 같으면 추출된 URL은 어차피 깊이 초과로 거부되므로 URL_Filter에 넘기지 않고 삽입을 건너뛰며, 이 URL들은 건너뛴 URL 수와 거부 로그에 포함하지 않는다.
 6. THE Crawler SHALL 크롤링 세션 종료 후 표준 출력으로 총 수집 페이지 수(Content_Store 저장 수), URL_Filter 및 Downloader에서 건너뛴 URL 수의 합산, 중복 감지 수, 소요 시간(초 단위)을 포함한 요약 통계를 출력한다.
 
 ---
