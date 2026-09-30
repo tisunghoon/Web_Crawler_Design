@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 MAX_CRAWL_DELAY = 300.0
 REQUEST_TIMEOUT = 30
+_DENIED_STATUSES = (401, 403)
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,10 @@ class RobotsRules:
                     logger.warning("잘못된 Crawl-delay 값을 무시합니다: %r", value)
         return rules
 
+    @classmethod
+    def disallow_all(cls) -> "RobotsRules":
+        return cls(disallow=[_compile("/")])
+
     def is_allowed(self, path_and_query: str) -> bool:
         blocked = _longest_match(self.disallow, path_and_query)
         return blocked < 0 or _longest_match(self.allow, path_and_query) >= blocked
@@ -97,18 +102,27 @@ class RobotsTxtCache:
         return min(rules.crawl_delay, MAX_CRAWL_DELAY)
 
     def fetch_and_cache(self, domain: str, scheme: str) -> None:
-        """robots.txt를 요청해 캐시한다. 실패하거나 없으면 전체 허용 규칙을 저장한다."""
+        """robots.txt를 요청해 캐시한다.
+
+        200은 파싱한다. 401·403과 5xx, 요청 실패는 크롤링을 허락받지 못한 것이므로 전체 금지,
+        그 외 응답(404, 410 등)은 규칙이 없는 것으로 보고 전체 허용이다.
+        """
         robots_url = f"{scheme}://{domain}/robots.txt"
-        text = ""
         try:
             response = requests.get(
                 robots_url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": self._user_agent}
             )
         except requests.RequestException as e:
-            logger.warning("robots.txt 요청 실패 url=%s: %s", robots_url, e)
+            logger.warning("robots.txt 요청 실패로 전체 금지 처리 url=%s: %s", robots_url, e)
+            self._rules[domain] = RobotsRules.disallow_all()
+            return
+
+        status = response.status_code
+        if status == 200:
+            self._rules[domain] = RobotsRules.parse(response.text)
+        elif status in _DENIED_STATUSES or status >= 500:
+            logger.warning("robots.txt 접근 불가(status=%s)로 전체 금지 처리 url=%s", status, robots_url)
+            self._rules[domain] = RobotsRules.disallow_all()
         else:
-            if response.status_code == 200:
-                text = response.text
-            else:
-                logger.warning("robots.txt 없음 url=%s status=%s", robots_url, response.status_code)
-        self._rules[domain] = RobotsRules.parse(text)
+            logger.warning("robots.txt 없음(status=%s)으로 전체 허용 처리 url=%s", status, robots_url)
+            self._rules[domain] = RobotsRules()

@@ -60,13 +60,6 @@ def test_404_allows_everything_and_is_cached():
 
 
 @responses.activate
-def test_request_failure_allows_everything(caplog):
-    responses.add(responses.GET, ROBOTS, body=requests.ConnectionError("boom"))
-    assert RobotsTxtCache().is_allowed("http://a.com/x") is True
-    assert "robots.txt 요청 실패" in caplog.text
-
-
-@responses.activate
 @pytest.mark.parametrize("value, expected", [("5", 5.0), ("999", 300.0), ("300", 300.0)])
 def test_crawl_delay_is_capped_at_300(value, expected):
     responses.add(responses.GET, ROBOTS, body=f"User-agent: *\nCrawl-delay: {value}")
@@ -185,3 +178,28 @@ def test_robots_request_sends_user_agent():
     responses.add(responses.GET, ROBOTS, body="")
     RobotsTxtCache("robots-bot/3.0").is_allowed("http://a.com/x")
     assert responses.calls[0].request.headers["User-Agent"] == "robots-bot/3.0"
+
+
+@responses.activate
+@pytest.mark.parametrize("status", [404, 410, 400])
+def test_missing_robots_allows_everything(status):
+    responses.add(responses.GET, ROBOTS, status=status)
+    assert RobotsTxtCache().is_allowed("http://a.com/anything") is True
+
+
+@responses.activate
+@pytest.mark.parametrize("status", [401, 403, 500, 503])
+def test_access_denied_or_server_error_disallows_everything(status, caplog):
+    responses.add(responses.GET, ROBOTS, status=status)
+    cache = RobotsTxtCache()
+    assert cache.is_allowed("http://a.com/") is False
+    assert cache.is_allowed("http://a.com/any/page") is False
+    assert "전체 금지" in caplog.text
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_request_failure_disallows_everything(caplog):
+    responses.add(responses.GET, ROBOTS, body=requests.ConnectionError("boom"))
+    assert RobotsTxtCache().is_allowed("http://a.com/x") is False
+    assert "robots.txt 요청 실패" in caplog.text
