@@ -15,6 +15,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--delay", type=float, default=defaults.politeness_delay, help="같은 호스트 요청 간 최소 간격(초) 0~60 (기본 %(default)s)")
     parser.add_argument("--output", metavar="PATH", help="수집 결과를 저장할 JSON Lines 파일 경로")
     parser.add_argument("--user-agent", default=defaults.user_agent, help="요청에 실을 User-Agent. 크롤러임을 밝히는 값을 쓰세요 (기본 %(default)r)")
+    parser.add_argument("--allow-domain", action="append", default=[], metavar="DOMAIN", help="시드 호스트 외에 허용할 도메인(하위 도메인 포함). 여러 번 지정 가능")
+    parser.add_argument("--allow-any-domain", action="store_true", help="범위 제한을 끄고 모든 호스트를 따라감 (주의)")
     parser.add_argument("-v", "--verbose", action="store_true", help="INFO 로그 출력")
     return parser
 
@@ -31,6 +33,8 @@ def main(argv: list[str] | None = None) -> int:
         max_pages=args.max_pages,
         politeness_delay=args.delay,
         user_agent=args.user_agent,
+        allowed_domains=tuple(args.allow_domain),
+        allow_any_domain=args.allow_any_domain,
         **options,
     )
     try:

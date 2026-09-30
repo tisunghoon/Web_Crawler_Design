@@ -188,7 +188,8 @@ BFS 기반 탐색, URL Frontier(우선순위 큐 + 예의 큐), robots.txt 준�
 3. WHEN Content_Store에 저장된 페이지 수가 설정된 최대 페이지 수에 도달할 때, THE Crawler SHALL BFS 루프를 즉시 종료한다.
 4. WHEN URL_Frontier가 비어 있을 때, THE Crawler SHALL BFS 루프를 정상 종료한다.
 5. WHEN Content_Parser가 URL을 추출할 때, THE Crawler SHALL 각 추출된 URL에 현재 페이지의 Crawl_Depth에 1을 더한 값을 부여한 후 URL_Filter를 통과한 URL만 URL_Frontier에 삽입한다. 단, 현재 페이지의 Crawl_Depth가 최대 크롤링 깊이와 같으면 추출된 URL은 어차피 깊이 초과로 거부되므로 URL_Filter에 넘기지 않고 삽입을 건너뛰며, 이 URL들은 건너뛴 URL 수와 거부 로그에 포함하지 않는다.
-6. THE Crawler SHALL 크롤링 세션 종료 후 표준 출력으로 총 수집 페이지 수(Content_Store 저장 수), URL_Filter 및 Downloader에서 건너뛴 URL 수의 합산, 중복 감지 수, 소요 시간(초 단위)을 포함한 요약 통계를 출력한다.
+6. THE Crawler SHALL 크롤링 세션 종료 후 표준 출력으로 총 수집 페이지 수(Content_Store 저장 수), URL_Filter 및 Downloader에서 건너뛴 URL 수의 합산, 중복 감지 수, 범위 밖 링크 수, 소요 시간(초 단위)을 포함한 요약 통계를 출력한다.
+7. THE Crawler SHALL 기본적으로 Seed_URL과 정확히 같은 호스트의 URL만 크롤링한다. 허용 도메인이 지정되면 그 도메인과 모든 하위 도메인을 추가로 허용하고, 전체 허용 옵션이 켜지면 호스트를 제한하지 않는다. 범위 밖 링크는 URL_Frontier에 삽입하지 않고 경고 없이 무시하며 건너뛴 URL 수가 아닌 범위 밖 링크 수로 따로 집계한다. 호스트를 알 수 없는 URL(형식 오류)은 범위 판정 대상이 아니며 URL_Filter가 거부한다.
 
 ---
 

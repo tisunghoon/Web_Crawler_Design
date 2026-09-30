@@ -41,3 +41,4 @@ class CrawlSummary:
     duplicate_count: int
     elapsed_seconds: float
     save_failed: bool = False
+    out_of_scope_count: int = 0

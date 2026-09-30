@@ -337,3 +337,77 @@ def test_real_skips_stay_visible_at_max_depth():
     responses.add(responses.GET, "http://a.com/missing", status=404)
     crawler, _ = make_crawler(["http://a.com/"], CrawlerConfig(max_depth=1, politeness_delay=0))
     assert crawler.run().skipped_urls == 2  # 404와 robots 금지는 여전히 집계된다
+
+
+def page_on(host, path, *links):
+    hrefs = "".join(f'<a href="{link}">l</a>' for link in links)
+    responses.add(
+        responses.GET, f"http://{host}{path}", body=f"<html><title>{host}{path}</title><body><p>{host}{path}</p>{hrefs}</body></html>", **HTML
+    )
+    responses.add(responses.GET, f"http://{host}/robots.txt", status=404)
+
+
+def requested_hosts():
+    return sorted({c.request.url.split("/")[2] for c in responses.calls})
+
+
+@responses.activate
+def test_links_outside_seed_host_are_not_crawled_and_counted_separately(caplog):
+    page_on("a.com", "/", "http://b.com/x", "http://sub.a.com/y", "/inside")
+    page_on("a.com", "/inside")
+    crawler, _ = make_crawler(["http://a.com/"])
+    summary = crawler.run()
+    assert requested_hosts() == ["a.com"]
+    assert summary.total_pages == 2
+    assert summary.out_of_scope_count == 2
+    assert summary.skipped_urls == 0  # 범위 밖 링크는 건너뜀에 포함하지 않는다
+    assert "b.com" not in caplog.text  # WARNING/ERROR 잡음 없음
+
+
+@responses.activate
+def test_allowed_domain_lets_subdomains_be_crawled():
+    page_on("a.com", "/", "http://sub.a.com/y", "http://b.com/x")
+    page_on("sub.a.com", "/y")
+    config = CrawlerConfig(politeness_delay=0, allowed_domains=("a.com",))
+    crawler, _ = make_crawler(["http://a.com/"], config)
+    summary = crawler.run()
+    assert requested_hosts() == ["a.com", "sub.a.com"]
+    assert summary.out_of_scope_count == 1
+
+
+@responses.activate
+def test_allow_any_domain_follows_external_links():
+    page_on("a.com", "/", "http://b.com/x")
+    page_on("b.com", "/x")
+    config = CrawlerConfig(politeness_delay=0, allow_any_domain=True)
+    crawler, _ = make_crawler(["http://a.com/"], config)
+    summary = crawler.run()
+    assert requested_hosts() == ["a.com", "b.com"]
+    assert summary.out_of_scope_count == 0
+
+
+@responses.activate
+def test_redirect_to_other_host_is_out_of_scope():
+    responses.add(responses.GET, "http://a.com/robots.txt", status=404)
+    responses.add(responses.GET, "http://a.com/old", status=301, headers={"Location": "http://b.com/new"})
+    crawler, _ = make_crawler(["http://a.com/old"])
+    summary = crawler.run()
+    assert requested_hosts() == ["a.com"]
+    assert (summary.total_pages, summary.out_of_scope_count) == (0, 1)
+
+
+@responses.activate
+def test_all_seed_hosts_are_in_scope():
+    page_on("a.com", "/", "http://b.com/x")
+    page_on("b.com", "/", "http://a.com/y")
+    page_on("b.com", "/x")
+    page_on("a.com", "/y")
+    crawler, _ = make_crawler(["http://a.com/", "http://b.com/"])
+    assert crawler.run().out_of_scope_count == 0
+
+
+@responses.activate
+def test_out_of_scope_count_is_printed(capsys):
+    page_on("a.com", "/", "http://b.com/x")
+    make_crawler(["http://a.com/"])[0].run()
+    assert "범위 밖 링크 수: 1" in capsys.readouterr().out
